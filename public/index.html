@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>極速搶答系統 - Realtime Quiz Buzzer</title>
+  <meta name="description" content="一個現代、美觀且具備即時同步倒數與反應時間計算的線上多人搶答按鈕系統。">
+  
+  <!-- 引入 Google Fonts: Outfit 與 Noto Sans TC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Outfit:wght@400;600;800;900&display=swap" rel="stylesheet">
+  
+  <!-- 引入自訂樣式 -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- 背景粒子與漸層特效 -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <div class="app-container" id="app">
+    <!-- 頂部列：包含標題與音效控制 -->
+    <header class="app-header">
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <h1>極速搶答<span>Buzzer</span></h1>
+      </div>
+      <button id="sound-toggle-btn" class="sound-btn" aria-label="切換音效" title="切換音效">
+        <span class="icon">🔊</span>
+      </button>
+    </header>
+
+    <main class="main-content">
+      <!-- 1. 入口選擇與加入畫面 -->
+      <section id="screen-lobby" class="screen active">
+        <div class="glass-card welcome-card">
+          <h2>歡迎使用極速搶答系統</h2>
+          <p class="subtitle">請選擇您的身分以開始遊戲</p>
+
+          <div class="role-selector">
+            <!-- 房主分頁按鈕 -->
+            <button id="tab-host-btn" class="tab-btn active">我是房主</button>
+            <!-- 玩家分頁按鈕 -->
+            <button id="tab-player-btn" class="tab-btn">我是玩家</button>
+          </div>
+
+          <!-- 房主設定面板 -->
+          <div id="panel-host-setup" class="setup-panel active">
+            <p class="panel-desc">點擊下方按鈕即可創建一個專屬的搶答房間，並獲取房間代碼供玩家連線。</p>
+            <button id="create-room-btn" class="primary-btn btn-glow">
+              <span class="btn-text">創建搶答房間</span>
+              <span class="btn-shine"></span>
+            </button>
+          </div>
+
+          <!-- 玩家設定面板 -->
+          <div id="panel-player-setup" class="setup-panel">
+            <form id="join-room-form" onsubmit="return false;">
+              <div class="input-group">
+                <label for="player-name-input">玩家暱稱</label>
+                <input type="text" id="player-name-input" placeholder="請輸入您的暱稱" required maxlength="12" autocomplete="off">
+              </div>
+              <div class="input-group">
+                <label for="room-id-input">房間號碼 (4位數)</label>
+                <input type="text" id="room-id-input" placeholder="請輸入 4 位數代碼" required pattern="\d{4}" maxlength="4" autocomplete="off">
+              </div>
+              <button type="submit" id="join-room-btn" class="primary-btn">
+                <span class="btn-text">加入房間</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. 房主控制台畫面 -->
+      <section id="screen-host" class="screen">
+        <div class="grid-layout">
+          <!-- 左側：房間資訊與玩家清單 -->
+          <div class="glass-card host-info-card">
+            <div class="room-code-header">
+              <span class="info-label">房間號碼</span>
+              <div class="room-code-display" id="host-room-id">----</div>
+              <p class="copy-hint">請將此號碼分享給您的玩家</p>
+            </div>
+
+            <div class="players-list-section">
+              <h3>已連線玩家 (<span id="connected-count">0</span>)</h3>
+              <div class="empty-state" id="players-empty-state">
+                <div class="loading-ring"><div></div><div></div><div></div><div></div></div>
+                <p>等待玩家連線中...</p>
+              </div>
+              <ul id="players-list" class="players-list">
+                <!-- 動態插入玩家 -->
+              </ul>
+            </div>
+
+            <div class="host-controls">
+              <button id="start-game-btn" class="primary-btn success-btn btn-glow" disabled>
+                <span class="btn-text">開始搶答 (倒數3秒)</span>
+              </button>
+              <div class="host-sub-controls">
+                <button id="reset-game-btn" class="secondary-btn" disabled>
+                  <span class="btn-text">重設搶答</span>
+                </button>
+                <button id="reset-scores-btn" class="secondary-btn" disabled>
+                  <span class="btn-text">重設分數</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右側：搶答結果面板 -->
+          <div class="glass-card results-card">
+            <div class="results-header">
+              <h2>搶答結果排行</h2>
+              <span class="badge" id="game-status-badge">等待開始</span>
+            </div>
+            
+            <div class="empty-state" id="results-empty-state">
+              <span class="trophy-icon">🏆</span>
+              <p>搶答結果將在此即時更新</p>
+            </div>
+
+            <div id="winner-banner" class="winner-banner hidden">
+              <div class="winner-crown">👑</div>
+              <div class="winner-name" id="winner-name">玩家姓名</div>
+              <div class="winner-time" id="winner-time">反應時間: 0.123秒</div>
+              
+              <!-- 房主判定按鈕 -->
+              <div class="judge-actions">
+                <button id="judge-correct-btn" class="judge-btn correct">
+                  <span>✅</span> 答對
+                </button>
+                <button id="judge-incorrect-btn" class="judge-btn incorrect">
+                  <span>❌</span> 答錯
+                </button>
+              </div>
+            </div>
+
+            <ul id="results-list" class="results-list">
+              <!-- 動態插入後續搶答順序 -->
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. 玩家搶答畫面 -->
+      <section id="screen-player" class="screen">
+        <div class="glass-card player-card">
+          <div class="player-header-info">
+            <div class="player-badge">
+              <span class="player-dot"></span>
+              <span id="player-screen-name">玩家暱稱</span>
+            </div>
+            <div class="room-badge">
+              房號: <span id="player-screen-room">----</span>
+            </div>
+          </div>
+
+          <!-- 搶答狀態指示器 -->
+          <div class="buzzer-status" id="buzzer-status-text">等待房主開始...</div>
+
+          <!-- 搶答按鈕主體 -->
+          <div class="buzzer-container">
+            <button id="buzzer-btn" class="buzzer-button" disabled aria-label="搶答按鈕">
+              <span class="buzzer-inner">
+                <span class="buzzer-icon">⚡</span>
+                <span class="buzzer-text">搶答</span>
+              </span>
+              <span class="buzzer-pulse"></span>
+            </button>
+          </div>
+
+          <!-- 個人搶答結果展示 -->
+          <div id="player-result-card" class="player-result-card hidden">
+            <div class="result-status-icon" id="player-result-icon">🎉</div>
+            <h3 id="player-result-title">搶答成功！</h3>
+            <p id="player-result-detail">您是第 1 個按下的，反應時間 0.25 秒！</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- 全螢幕同步倒數計時器覆蓋層 -->
+  <div id="countdown-overlay" class="countdown-overlay">
+    <div class="countdown-circle">
+      <div class="countdown-number" id="countdown-number">3</div>
+      <svg class="countdown-svg">
+        <circle r="90" cx="100" cy="100" class="countdown-svg-bg"></circle>
+        <circle r="90" cx="100" cy="100" class="countdown-svg-progress" id="countdown-progress-bar"></circle>
+      </svg>
+    </div>
+    <div class="countdown-label">準備搶答！</div>
+  </div>
+
+  <!-- 引入 Socket.io 客戶端檔案（由後端 Express 自動提供，免去 CDN 不穩定的問題） -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- 引入自訂前端腳本 -->
+  <script src="client.js"></script>
+</body>
+</html>
